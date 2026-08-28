@@ -28,6 +28,7 @@ model Category {
 
 model Product {
   id             String         @id @default(uuid())
+  code           String?        @unique
   name           String
   slug           String         @unique
   description    String
@@ -40,6 +41,7 @@ model Product {
   height         Decimal        @default(6)   // cm
   isFeatured     Boolean        @default(false)
   isNew          Boolean        @default(true)
+  isActive       Boolean        @default(true)
   categoryId     String
   category       Category       @relation(fields: [categoryId], references: [id])
   images         ProductImage[]

@@ -1,20 +1,22 @@
 import Link from "next/link";
 import { ShoppingCart, Search, User } from "lucide-react";
+import { prisma } from "@/lib/prisma";
 
-export default function StoreLayout({
+export default async function StoreLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const categories = await prisma.category.findMany({ orderBy: { name: "asc" }, take: 8 });
   return (
     <div className="min-h-screen flex flex-col bg-white text-zinc-900">
       {/* Header */}
       <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-zinc-100 flex flex-col">
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <button className="p-2 hover:bg-zinc-100 rounded-full transition-colors">
+            <Link href="/buscar" aria-label="Buscar" className="p-2 hover:bg-zinc-100 rounded-full transition-colors">
               <Search className="w-5 h-5 text-zinc-600" />
-            </button>
+            </Link>
           </div>
 
           <Link href="/" className="text-xl font-bold tracking-widest uppercase">
@@ -22,10 +24,10 @@ export default function StoreLayout({
           </Link>
 
           <div className="flex items-center gap-4">
-            <button className="flex items-center gap-2 hover:text-zinc-600 transition-colors text-sm font-medium">
+            <Link href="/cadastro" className="flex items-center gap-2 hover:text-zinc-600 transition-colors text-sm font-medium">
               <User className="w-5 h-5" />
               <span className="hidden md:inline">Login / Cadastre-se</span>
-            </button>
+            </Link>
             <button className="flex items-center gap-2 hover:text-zinc-600 transition-colors text-sm font-medium relative">
               <ShoppingCart className="w-5 h-5" />
               <span className="hidden md:inline">Carrinho (0)</span>
@@ -36,14 +38,7 @@ export default function StoreLayout({
         {/* Sub-header Navigation */}
         <div className="hidden md:flex border-t border-zinc-100 bg-white">
           <div className="container mx-auto px-4 h-12 flex items-center justify-center gap-8 text-xs uppercase tracking-wider font-medium text-zinc-600">
-            <Link href="/lancamentos" className="hover:text-rose-500 transition-colors">Lançamentos</Link>
-            <Link href="/categorias/brincos" className="hover:text-rose-500 transition-colors">Brincos</Link>
-            <Link href="/categorias/aliancas" className="hover:text-rose-500 transition-colors">Alianças</Link>
-            <Link href="/categorias/aneis" className="hover:text-rose-500 transition-colors">Anéis</Link>
-            <Link href="/categorias/colares" className="hover:text-rose-500 transition-colors">Colares</Link>
-            <Link href="/categorias/pulseiras" className="hover:text-rose-500 transition-colors">Pulseiras</Link>
-            <Link href="/categorias/pingentes" className="hover:text-rose-500 transition-colors">Pingentes</Link>
-            <Link href="/sale" className="text-rose-500 hover:text-rose-600 font-bold transition-colors">SALE</Link>
+            {categories.map((category) => <Link key={category.id} href={`/categoria/${category.slug}`} className="hover:text-rose-500 transition-colors">{category.name}</Link>)}
           </div>
         </div>
       </header>

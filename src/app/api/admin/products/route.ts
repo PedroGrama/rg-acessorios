@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/admin-auth";
+import { validateProductInput } from "@/lib/product-validation";
 
 export async function GET(request: Request) {
   if (!(await requireAdmin(request))) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
@@ -16,15 +17,11 @@ export async function POST(request: Request) {
   if (!(await requireAdmin(request))) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
 
   const body = await request.json();
+  const validated = validateProductInput(body);
+  if (validated.error) return NextResponse.json({ error: validated.error }, { status: 400 });
   const product = await prisma.product.create({
     data: {
-      name: body.name,
-      slug: body.slug,
-      description: body.description ?? "",
-      price: body.price,
-      compareAtPrice: body.compareAtPrice || null,
-      stock: Number(body.stock ?? 0),
-      categoryId: body.categoryId,
+      ...validated.data!,
       images: body.imageUrl ? { create: { url: body.imageUrl, isMain: true } } : undefined,
     },
     include: { category: true, images: true },
@@ -36,17 +33,11 @@ export async function PATCH(request: Request) {
   if (!(await requireAdmin(request))) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
 
   const body = await request.json();
+  const validated = validateProductInput(body);
+  if (validated.error) return NextResponse.json({ error: validated.error }, { status: 400 });
   const product = await prisma.product.update({
     where: { id: body.id },
-    data: {
-      name: body.name,
-      slug: body.slug,
-      description: body.description ?? "",
-      price: body.price,
-      compareAtPrice: body.compareAtPrice || null,
-      stock: Number(body.stock ?? 0),
-      categoryId: body.categoryId,
-    },
+    data: validated.data!,
     include: { category: true, images: true },
   });
   return NextResponse.json(product);
