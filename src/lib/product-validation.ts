@@ -2,9 +2,17 @@ export function slugify(value: string) {
   return value.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
 }
 
+const ignoredPrefixWords = new Set(["a", "as", "o", "os", "e", "em", "de", "da", "do", "das", "dos"]);
+
+export function categoryPrefix(name: string) {
+  const words = name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().match(/[A-Z0-9]+/g) ?? [];
+  const significantWords = words.filter((word) => !ignoredPrefixWords.has(word.toLowerCase()));
+  if (words.length === 1) return words[0].slice(0, 2).padEnd(2, "X");
+  return (significantWords.map((word) => word[0]).join("").slice(0, 2) || "PR").padEnd(2, "X");
+}
+
 export function validateProductInput(input: Record<string, unknown>) {
   const name = typeof input.name === "string" ? input.name.trim() : "";
-  const code = typeof input.code === "string" ? input.code.trim() : "";
   const description = typeof input.description === "string" ? input.description.trim() : "";
   const slug = typeof input.slug === "string" ? input.slug.trim() : "";
   const price = Number(input.price);
@@ -17,5 +25,5 @@ export function validateProductInput(input: Record<string, unknown>) {
   if (!Number.isInteger(stock) || stock < 0) return { error: "O estoque deve ser um número inteiro não negativo." };
   if (!categoryId) return { error: "Selecione uma categoria." };
 
-  return { data: { code: code || null, name, slug, description, price, stock, categoryId, compareAtPrice: input.compareAtPrice ? Number(input.compareAtPrice) : null, isActive: input.isActive !== false } };
+  return { data: { name, slug, description, price, stock, categoryId, compareAtPrice: input.compareAtPrice ? Number(input.compareAtPrice) : null, isActive: input.isActive !== false } };
 }

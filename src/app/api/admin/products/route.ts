@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/admin-auth";
 import { validateProductInput } from "@/lib/product-validation";
+import { nextProductCode } from "@/lib/product-code";
+import { uniqueProductSlug } from "@/lib/unique-slug";
 
 export async function GET(request: Request) {
   if (!(await requireAdmin(request))) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
@@ -19,9 +21,12 @@ export async function POST(request: Request) {
   const body = await request.json();
   const validated = validateProductInput(body);
   if (validated.error) return NextResponse.json({ error: validated.error }, { status: 400 });
+  const code = await nextProductCode(validated.data!.categoryId);
+  const slug = await uniqueProductSlug(validated.data!.name);
   const product = await prisma.product.create({
     data: {
-      ...validated.data!,
+      ...validated.data!, slug,
+      code,
       images: body.imageUrl ? { create: { url: body.imageUrl, isMain: true } } : undefined,
     },
     include: { category: true, images: true },

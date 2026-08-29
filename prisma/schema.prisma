@@ -21,6 +21,7 @@ model Category {
   id          String    @id @default(uuid())
   name        String
   slug        String    @unique
+  code        String?
   description String?
   products    Product[]
   createdAt   DateTime  @default(now())
