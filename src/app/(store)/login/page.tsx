@@ -10,96 +10,67 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
 );
 
-export default function RegisterPage() {
+export default function LoginPage() {
   return (
     <Suspense fallback={<div className="min-h-[70vh] flex items-center justify-center">Carregando...</div>}>
-      <RegisterForm />
+      <LoginForm />
     </Suspense>
   );
 }
 
-function RegisterForm() {
+function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const next = searchParams.get("next") || "/carrinho";
 
-  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
-  const [messageType, setMessageType] = useState<"success" | "error" | "info">("info");
 
-  async function register(event: FormEvent) {
+  async function login(event: FormEvent) {
     event.preventDefault();
     setLoading(true);
     setMessage("");
 
-    const redirectTo =
-      typeof window !== "undefined"
-        ? `${window.location.origin}${next}`
-        : undefined;
-
-    const { data, error } = await supabase.auth.signUp({
+    const { error } = await supabase.auth.signInWithPassword({
       email,
       password,
-      options: {
-        data: { name },
-        emailRedirectTo: redirectTo,
-      },
     });
 
     setLoading(false);
 
     if (error) {
-      setMessageType("error");
       setMessage(error.message);
       return;
     }
 
-    if (data.session) {
-      // Se login foi automático (confirmação desabilitada ou session imediata)
-      router.push(next);
-      router.refresh();
-      return;
-    }
-
-    setMessageType("success");
-    setMessage(
-      "Cadastro realizado com sucesso! Enviamos um link de confirmação para o seu e-mail. Após confirmar, você poderá acessar sua conta com o carrinho preservado.",
-    );
+    router.push(next);
+    router.refresh();
   }
 
   return (
     <main className="min-h-[70vh] flex items-center justify-center px-4 py-16">
-      <form onSubmit={register} className="w-full max-w-md space-y-5">
+      <form onSubmit={login} className="w-full max-w-md space-y-5">
         <p className="text-xs uppercase tracking-[0.25em] text-rose-500">
           RG Acessórios
         </p>
-        <h1 className="text-4xl font-light">Criar sua conta</h1>
+        <h1 className="text-4xl font-light">Entrar</h1>
         <p className="text-sm text-zinc-500">
-          Cadastre-se para concluir suas compras e acompanhar seus pedidos. Seus itens no carrinho serão mantidos.
+          Entre com seu e-mail e senha para continuar sua compra.
         </p>
         <input
           required
-          placeholder="Nome completo"
-          value={name}
-          onChange={(event) => setName(event.target.value)}
-          className="w-full border border-zinc-200 p-3 rounded-md focus:border-zinc-900 outline-none"
-        />
-        <input
-          required
           type="email"
-          placeholder="Seu melhor e-mail"
+          placeholder="Seu e-mail"
           value={email}
           onChange={(event) => setEmail(event.target.value)}
           className="w-full border border-zinc-200 p-3 rounded-md focus:border-zinc-900 outline-none"
         />
         <input
           required
-          minLength={6}
           type="password"
-          placeholder="Crie uma senha (mínimo 6 caracteres)"
+          placeholder="Sua senha"
           value={password}
           onChange={(event) => setPassword(event.target.value)}
           className="w-full border border-zinc-200 p-3 rounded-md focus:border-zinc-900 outline-none"
@@ -108,30 +79,22 @@ function RegisterForm() {
           disabled={loading}
           className="w-full bg-zinc-900 text-white py-3 rounded-md font-medium hover:bg-zinc-800 disabled:opacity-60 transition-colors"
         >
-          {loading ? "Cadastrando..." : "Criar cadastro"}
+          {loading ? "Entrando..." : "Entrar"}
         </button>
 
         {message && (
-          <div
-            className={`p-3 rounded-md text-sm ${
-              messageType === "error"
-                ? "bg-red-50 text-red-700 border border-red-200"
-                : messageType === "success"
-                ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
-                : "bg-zinc-100 text-zinc-700"
-            }`}
-          >
+          <p className="text-sm text-red-600 bg-red-50 p-3 rounded-md border border-red-200">
             {message}
-          </div>
+          </p>
         )}
 
         <p className="text-sm text-zinc-500">
-          Já possui conta?{" "}
+          Ainda não possui conta?{" "}
           <Link
-            href={`/login?next=${encodeURIComponent(next)}`}
+            href={`/cadastro?next=${encodeURIComponent(next)}`}
             className="text-rose-500 underline font-medium"
           >
-            Entrar
+            Criar cadastro
           </Link>
         </p>
       </form>

@@ -1,6 +1,12 @@
 import Link from "next/link";
 import { ShoppingCart, Search, User } from "lucide-react";
 import { prisma } from "@/lib/prisma";
+import { CartBadge } from "@/components/cart-badge";
+import { CartLink } from "@/components/cart-link";
+import { UserNav } from "@/components/user-nav";
+
+const WHATSAPP_URL = "https://wa.me/5531975045270?text=Olá%20Dona%20Raphaela,%20vim%20pelo%20site!";
+const INSTAGRAM_URL = "https://www.instagram.com/raphaelagrama.acessorios/";
 
 export default async function StoreLayout({
   children,
@@ -24,14 +30,8 @@ export default async function StoreLayout({
           </Link>
 
           <div className="flex items-center gap-4">
-            <Link href="/cadastro" className="flex items-center gap-2 hover:text-zinc-600 transition-colors text-sm font-medium">
-              <User className="w-5 h-5" />
-              <span className="hidden md:inline">Login / Cadastre-se</span>
-            </Link>
-            <button className="flex items-center gap-2 hover:text-zinc-600 transition-colors text-sm font-medium relative">
-              <ShoppingCart className="w-5 h-5" />
-              <span className="hidden md:inline">Carrinho (0)</span>
-            </button>
+            <UserNav />
+            <CartLink />
           </div>
         </div>
 
@@ -60,7 +60,7 @@ export default async function StoreLayout({
           <div>
             <h3 className="font-bold uppercase mb-4 tracking-wider text-sm">Links Úteis</h3>
             <ul className="space-y-2 text-sm text-zinc-500">
-              <li><Link href="/sobre" className="hover:text-zinc-900">Sobre nós</Link></li>
+              <li><a href={INSTAGRAM_URL} target="_blank" rel="noreferrer" className="hover:text-zinc-900">Sobre nós</a></li>
               <li><Link href="/contato" className="hover:text-zinc-900">Contato</Link></li>
               <li><Link href="/trocas" className="hover:text-zinc-900">Trocas e Devoluções</Link></li>
             </ul>
@@ -68,8 +68,8 @@ export default async function StoreLayout({
           <div>
             <h3 className="font-bold uppercase mb-4 tracking-wider text-sm">Redes Sociais</h3>
             <ul className="space-y-2 text-sm text-zinc-500">
-              <li><a href="#" className="hover:text-zinc-900">Instagram</a></li>
-              <li><a href="#" className="hover:text-zinc-900">WhatsApp</a></li>
+              <li><a href={INSTAGRAM_URL} target="_blank" rel="noreferrer" className="hover:text-zinc-900">Instagram</a></li>
+              <li><a href={WHATSAPP_URL} target="_blank" rel="noreferrer" className="hover:text-zinc-900">WhatsApp</a></li>
             </ul>
           </div>
         </div>
@@ -80,7 +80,7 @@ export default async function StoreLayout({
 
       {/* Floating WhatsApp Button */}
       <a
-        href="https://wa.me/5531984567750?text=Olá%20Dona%20Raphaela,%20vim%20pelo%20site!"
+        href={WHATSAPP_URL}
         target="_blank"
         rel="noopener noreferrer"
         className="fixed bottom-6 right-6 z-50 bg-[#25D366] text-white p-4 rounded-full shadow-lg hover:scale-110 hover:shadow-xl transition-all duration-300 flex items-center justify-center group"

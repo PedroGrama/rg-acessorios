@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/admin-auth";
-import { validateProductInput } from "@/lib/product-validation";
+import { normalizeImageUrls, validateProductInput } from "@/lib/product-validation";
 import { nextProductCode } from "@/lib/product-code";
 import { uniqueProductSlug } from "@/lib/unique-slug";
 
@@ -22,12 +22,13 @@ export async function POST(request: Request) {
   const validated = validateProductInput(body);
   if (validated.error) return NextResponse.json({ error: validated.error }, { status: 400 });
   const code = await nextProductCode(validated.data!.categoryId);
-  const slug = await uniqueProductSlug(validated.data!.name);
+  const slug = await uniqueProductSlug(validated.data!.name, undefined, code);
+  const imageUrls = normalizeImageUrls(body.imageUrls ?? body.imageUrl);
   const product = await prisma.product.create({
     data: {
       ...validated.data!, slug,
       code,
-      images: body.imageUrl ? { create: { url: body.imageUrl, isMain: true } } : undefined,
+      images: imageUrls.length > 0 ? { create: imageUrls.slice(0, 3).map((url: string, index: number) => ({ url, isMain: index === 0 })) } : undefined,
     },
     include: { category: true, images: true },
   });

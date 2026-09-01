@@ -24,7 +24,7 @@ A aplicação usa o Next.js com renderização no servidor para o catálogo púb
 ### Integrações
 
 - **Melhor Envio** para cotação de frete
-- Mercado Pago está instalado no projeto, mas não faz parte do fluxo inicial de compra
+- PagSeguro será integrado para administrar o checkout com PIX, cartão de crédito e débito
 - Deploy planejado na **Vercel**
 
 ## Como executar
