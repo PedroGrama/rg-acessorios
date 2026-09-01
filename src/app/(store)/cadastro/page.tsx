@@ -26,6 +26,7 @@ function RegisterForm() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState<"success" | "error" | "info">("info");
@@ -35,9 +36,25 @@ function RegisterForm() {
     setLoading(true);
     setMessage("");
 
+    // Validar se as senhas coincidem
+    if (password !== confirmPassword) {
+      setLoading(false);
+      setMessageType("error");
+      setMessage("As senhas não coincidem. Por favor, verifique.");
+      return;
+    }
+
+    // Validar comprimento mínimo de senha
+    if (password.length < 6) {
+      setLoading(false);
+      setMessageType("error");
+      setMessage("A senha deve ter no mínimo 6 caracteres.");
+      return;
+    }
+
     const redirectTo =
       typeof window !== "undefined"
-        ? `${window.location.origin}${next}`
+        ? `${window.location.origin}/auth/callback`
         : undefined;
 
     const { data, error } = await supabase.auth.signUp({
@@ -102,6 +119,15 @@ function RegisterForm() {
           placeholder="Crie uma senha (mínimo 6 caracteres)"
           value={password}
           onChange={(event) => setPassword(event.target.value)}
+          className="w-full border border-zinc-200 p-3 rounded-md focus:border-zinc-900 outline-none"
+        />
+        <input
+          required
+          minLength={6}
+          type="password"
+          placeholder="Repita sua senha"
+          value={confirmPassword}
+          onChange={(event) => setConfirmPassword(event.target.value)}
           className="w-full border border-zinc-200 p-3 rounded-md focus:border-zinc-900 outline-none"
         />
         <button
