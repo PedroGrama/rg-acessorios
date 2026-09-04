@@ -5,6 +5,7 @@ import Link from "next/link";
 import { User as UserIcon, LogOut } from "lucide-react";
 import { createClient, User } from "@supabase/supabase-js";
 import { useRouter } from "next/navigation";
+import { setCurrentCartUserId } from "@/lib/cart";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -18,14 +19,18 @@ export function UserNav() {
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
-      setUser(data.session?.user ?? null);
+      const nextUser = data.session?.user ?? null;
+      setUser(nextUser);
+      setCurrentCartUserId(nextUser?.id ?? null);
       setLoading(false);
     });
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
+      const nextUser = session?.user ?? null;
+      setUser(nextUser);
+      setCurrentCartUserId(nextUser?.id ?? null);
       setLoading(false);
     });
 
@@ -34,6 +39,7 @@ export function UserNav() {
 
   async function handleLogout() {
     await supabase.auth.signOut();
+    setCurrentCartUserId(null);
     setUser(null);
     router.refresh();
   }

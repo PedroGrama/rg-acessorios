@@ -61,7 +61,7 @@ export default async function StoreLayout({
             <h3 className="font-bold uppercase mb-4 tracking-wider text-sm">Links Úteis</h3>
             <ul className="space-y-2 text-sm text-zinc-500">
               <li><a href={INSTAGRAM_URL} target="_blank" rel="noreferrer" className="hover:text-zinc-900">Sobre nós</a></li>
-              <li><Link href="/contato" className="hover:text-zinc-900">Contato</Link></li>
+              <li><a href={WHATSAPP_URL} target="_blank" rel="noreferrer" className="hover:text-zinc-900">Contato</a></li>
               <li><Link href="/trocas" className="hover:text-zinc-900">Trocas e Devoluções</Link></li>
             </ul>
           </div>

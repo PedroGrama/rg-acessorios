@@ -4,6 +4,7 @@ import Link from "next/link";
 import { FormEvent, useState, Suspense } from "react";
 import { createClient } from "@supabase/supabase-js";
 import { useSearchParams, useRouter } from "next/navigation";
+import { setCurrentCartUserId } from "@/lib/cart";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -75,7 +76,7 @@ function RegisterForm() {
     }
 
     if (data.session) {
-      // Se login foi automático (confirmação desabilitada ou session imediata)
+      setCurrentCartUserId(data.session.user.id);
       router.push(next);
       router.refresh();
       return;

@@ -4,7 +4,7 @@ import { useEffect, useState, Suspense } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
-import { readCartItems, CartItem } from "@/lib/cart";
+import { readCartItems, CartItem, normalizePhone, normalizePostalCode, setCurrentCartUserId } from "@/lib/cart";
 import { ArrowLeft, Loader2 } from "lucide-react";
 
 const supabase = createClient(
@@ -40,8 +40,10 @@ function CheckoutContent() {
   const [shippingOptions, setShippingOptions] = useState<any[]>([]);
   const [selectedShipping, setSelectedShipping] = useState<string | null>(null);
   const [shippingCost, setShippingCost] = useState(0);
+  const [shippingMessage, setShippingMessage] = useState<string | null>(null);
+  const [checkoutMessage, setCheckoutMessage] = useState<string | null>(null);
   const [processingPayment, setProcessingPayment] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState<"pix" | "credit" | "debit">("pix");
+  const [paymentMethod, setPaymentMethod] = useState<"pix" | "credit">("pix");
 
   useEffect(() => {
     const sync = () => setItems(readCartItems());
@@ -54,6 +56,9 @@ function CheckoutContent() {
         return;
       }
       setUser(userData);
+      if (userData?.id) {
+        setCurrentCartUserId(userData.id);
+      }
       setShippingData((prev) => ({
         ...prev,
         email: userData.email || "",
@@ -67,86 +72,130 @@ function CheckoutContent() {
   const finalTotal = total + shippingCost;
 
   const handlePostalCodeChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const cep = e.target.value.replace(/\D/g, "");
-    setShippingData((prev) => ({ ...prev, postalCode: cep }));
+    const nextPostalCode = normalizePostalCode(e.target.value);
+    setShippingData((prev) => ({ ...prev, postalCode: nextPostalCode }));
 
-    if (cep.length === 8) {
-      try {
-        // Buscar CEP
-        const response = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
-        if (response.ok) {
-          const data = await response.json();
-          if (!data.erro) {
-            setShippingData((prev) => ({
-              ...prev,
-              address: data.logradouro,
-              city: data.localidade,
-              state: data.uf,
-            }));
-
-            // Calcular frete
-            const shippingRes = await fetch("/api/shipping/calculate", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                postalCode: cep,
-                items: items.map((item) => ({
-                  quantity: item.quantity,
-                  weight: 0.1,
-                  length: 15,
-                  width: 11,
-                  height: 6,
-                })),
-              }),
-            });
-
-            if (shippingRes.ok) {
-              const shipping = await shippingRes.json();
-              setShippingOptions(shipping.options || []);
-              if (shipping.options?.length > 0) {
-                setSelectedShipping(shipping.options[0].id);
-                setShippingCost(Number(shipping.options[0].price) || 0);
-              }
-            }
-          }
-        }
-      } catch (error) {
-        console.error("Erro ao buscar CEP:", error);
-      }
+    if (nextPostalCode.length !== 9) {
+      setShippingOptions([]);
+      setSelectedShipping(null);
+      setShippingCost(0);
+      setShippingMessage("Para continuar, informe um CEP válido para calcular a melhor opção de frete.");
+      return;
     }
+
+    const cep = nextPostalCode.replace(/\D/g, "");
+
+    try {
+      const response = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
+      if (response.ok) {
+        const data = await response.json();
+        if (!data.erro) {
+          setShippingData((prev) => ({
+            ...prev,
+            address: data.logradouro,
+            city: data.localidade,
+            state: data.uf,
+          }));
+
+          const shippingRes = await fetch("/api/shipping/calculate", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              postalCode: cep,
+              items: items.map((item) => ({
+                quantity: item.quantity,
+                weight: 0.1,
+                length: 15,
+                width: 11,
+                height: 6,
+              })),
+            }),
+          });
+
+          if (!shippingRes.ok) {
+            const errorPayload = await shippingRes.json().catch(() => ({ error: "Não foi possível calcular a melhor opção de frete para este CEP." }));
+            setShippingOptions([]);
+            setSelectedShipping(null);
+            setShippingCost(0);
+            setShippingMessage(errorPayload.error || "Não foi possível calcular a melhor opção de frete para este CEP. Revise o endereço ou tente novamente em alguns minutos.");
+            return;
+          }
+
+          const shipping = await shippingRes.json();
+          const options = Array.isArray(shipping) ? shipping : shipping?.options || [];
+          setShippingOptions(options);
+          setShippingMessage(options.length > 0 ? null : "Não encontramos uma opção de frete para este CEP no momento. Verifique o endereço e tente novamente.");
+
+          if (options.length > 0) {
+            const price = Number(options[0]?.price ?? 0);
+            setSelectedShipping(options[0]?.id ?? null);
+            setShippingCost(Number.isFinite(price) ? price : 0);
+          } else {
+            setSelectedShipping(null);
+            setShippingCost(0);
+          }
+        } else {
+          setShippingOptions([]);
+          setSelectedShipping(null);
+          setShippingCost(0);
+          setShippingMessage("Esse CEP não foi encontrado. Verifique se o endereço foi digitado corretamente e tente novamente.");
+        }
+      } else {
+        setShippingOptions([]);
+        setSelectedShipping(null);
+        setShippingCost(0);
+        setShippingMessage("Não foi possível validar o CEP informado no momento. Tente novamente em alguns instantes.");
+      }
+    } catch (error) {
+      console.error("Erro ao buscar CEP:", error);
+      setShippingOptions([]);
+      setSelectedShipping(null);
+      setShippingCost(0);
+      setShippingMessage("Não conseguimos consultar as opções de frete agora. Verifique o CEP e tente novamente em alguns minutos.");
+    }
+  };
+
+  const formatMoney = (value: number | string | null | undefined) => {
+    const numericValue = Number(value ?? 0);
+    if (!Number.isFinite(numericValue)) return "0,00";
+    return numericValue.toFixed(2).replace(".", ",");
   };
 
   const handleShippingSelection = (option: any) => {
-    setSelectedShipping(option.id);
-    setShippingCost(Number(option.price) || 0);
+    const price = Number(option?.price ?? 0);
+    setSelectedShipping(option?.id ?? null);
+    setShippingCost(Number.isFinite(price) ? price : 0);
   };
 
   const handlePayment = async () => {
-    // Validação dos dados obrigatórios
+    const normalizedPhone = normalizePhone(shippingData.phone);
+    const normalizedPostalCode = normalizePostalCode(shippingData.postalCode);
+
     if (!shippingData.fullName.trim()) {
-      alert("Por favor, informe o nome completo");
+      setCheckoutMessage("Informe o nome completo antes de continuar.");
       return;
     }
-    if (!shippingData.phone.trim()) {
-      alert("Por favor, informe o telefone");
+    if (!normalizedPhone || normalizedPhone.replace(/\D/g, "").length < 10) {
+      setCheckoutMessage("Informe um telefone válido com DDD e número.");
       return;
     }
-    if (!shippingData.postalCode.trim() || shippingData.postalCode.length !== 8) {
-      alert("Por favor, informe um CEP válido");
+    if (!normalizedPostalCode || normalizedPostalCode.replace(/\D/g, "").length !== 8) {
+      setCheckoutMessage("Informe um CEP válido para calcular o frete.");
       return;
     }
     if (!shippingData.number.trim()) {
-      alert("Por favor, informe o número da residência");
+      setCheckoutMessage("Informe o número da residência para continuar.");
       return;
     }
     if (!selectedShipping) {
-      alert("Selecione uma opção de frete");
+      setCheckoutMessage(shippingMessage || "Selecione uma opção de frete antes de avançar para o pagamento.");
       return;
     }
 
+    setCheckoutMessage(null);
     setProcessingPayment(true);
+
     try {
-      // Criar pedido
       const orderRes = await fetch("/api/admin/orders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -154,17 +203,17 @@ function CheckoutContent() {
           userId: user.id,
           customerName: shippingData.fullName,
           customerEmail: shippingData.email,
-          customerPhone: shippingData.phone,
+          customerPhone: normalizedPhone,
           shippingAddress: {
             address: shippingData.address,
             number: shippingData.number,
             complement: shippingData.complement,
             city: shippingData.city,
             state: shippingData.state,
-            postalCode: shippingData.postalCode,
+            postalCode: normalizedPostalCode.replace(/\D/g, ""),
           },
           shippingCost,
-          shippingMethod: selectedShipping,
+          shippingMethod: shippingOptions.find((o) => o.id === selectedShipping)?.name ?? selectedShipping?.toString(),
           items,
           paymentMethod,
           total: finalTotal,
@@ -174,18 +223,14 @@ function CheckoutContent() {
       if (orderRes.ok) {
         const order = await orderRes.json();
 
-        // Limpar carrinho
         if (typeof window !== "undefined") {
           localStorage.removeItem("rg-acessorios-cart");
           window.dispatchEvent(new CustomEvent("rg-cart:update"));
         }
 
-        // Redirecionar para pagamento
         if (paymentMethod === "pix") {
-          // Implementar pagamento PIX via PagSeguro
           router.push(`/pix-payment?orderId=${order.id}`);
         } else {
-          // Implementar pagamento com cartão
           router.push(`/card-payment?orderId=${order.id}`);
         }
       } else {
@@ -228,50 +273,52 @@ function CheckoutContent() {
       <h1 className="text-4xl font-light mb-12">Finalizar Compra</h1>
 
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-10">
-        {/* Formulário */}
         <div className="space-y-8">
           {step === "shipping" && (
             <div className="space-y-6">
               <div>
                 <h2 className="text-xl font-medium mb-4">Dados de Entrega</h2>
 
+                {shippingMessage && (
+                  <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                    {shippingMessage}
+                  </div>
+                )}
+
+                {checkoutMessage && (
+                  <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                    {checkoutMessage}
+                  </div>
+                )}
+
                 <div className="space-y-4">
                   <input
                     type="text"
                     placeholder="Nome completo"
                     value={shippingData.fullName}
-                    onChange={(e) =>
-                      setShippingData((prev) => ({ ...prev, fullName: e.target.value }))
-                    }
+                    onChange={(e) => setShippingData((prev) => ({ ...prev, fullName: e.target.value }))}
                     className="w-full px-4 py-2 border border-zinc-200 rounded-lg focus:outline-none focus:border-rose-500"
                   />
-
                   <input
                     type="email"
                     placeholder="E-mail"
                     value={shippingData.email}
-                    onChange={(e) =>
-                      setShippingData((prev) => ({ ...prev, email: e.target.value }))
-                    }
+                    onChange={(e) => setShippingData((prev) => ({ ...prev, email: e.target.value }))}
                     className="w-full px-4 py-2 border border-zinc-200 rounded-lg focus:outline-none focus:border-rose-500"
                   />
-
                   <input
                     type="tel"
                     placeholder="Telefone"
                     value={shippingData.phone}
-                    onChange={(e) =>
-                      setShippingData((prev) => ({ ...prev, phone: e.target.value }))
-                    }
+                    onChange={(e) => setShippingData((prev) => ({ ...prev, phone: normalizePhone(e.target.value) }))}
                     className="w-full px-4 py-2 border border-zinc-200 rounded-lg focus:outline-none focus:border-rose-500"
                   />
-
                   <input
                     type="text"
                     placeholder="CEP"
                     value={shippingData.postalCode}
                     onChange={handlePostalCodeChange}
-                    maxLength={8}
+                    maxLength={9}
                     className="w-full px-4 py-2 border border-zinc-200 rounded-lg focus:outline-none focus:border-rose-500"
                   />
 
@@ -284,27 +331,19 @@ function CheckoutContent() {
                         className="w-full px-4 py-2 border border-zinc-200 rounded-lg bg-zinc-50 cursor-not-allowed"
                         disabled
                       />
-
                       <div className="grid grid-cols-2 gap-4">
                         <input
                           type="text"
                           placeholder="Número"
                           value={shippingData.number}
-                          onChange={(e) =>
-                            setShippingData((prev) => ({ ...prev, number: e.target.value }))
-                          }
+                          onChange={(e) => setShippingData((prev) => ({ ...prev, number: e.target.value }))}
                           className="px-4 py-2 border border-zinc-200 rounded-lg focus:outline-none focus:border-rose-500"
                         />
                         <input
                           type="text"
                           placeholder="Complemento"
                           value={shippingData.complement}
-                          onChange={(e) =>
-                            setShippingData((prev) => ({
-                              ...prev,
-                              complement: e.target.value,
-                            }))
-                          }
+                          onChange={(e) => setShippingData((prev) => ({ ...prev, complement: e.target.value }))}
                           className="px-4 py-2 border border-zinc-200 rounded-lg focus:outline-none focus:border-rose-500"
                         />
                       </div>
@@ -313,7 +352,6 @@ function CheckoutContent() {
                 </div>
               </div>
 
-              {/* Opções de Frete */}
               {shippingOptions.length > 0 && (
                 <div>
                   <h2 className="text-xl font-medium mb-4">Opções de Frete</h2>
@@ -333,11 +371,9 @@ function CheckoutContent() {
                         />
                         <div className="flex-1">
                           <p className="font-medium">
-                            {option.name} ({option.delivery_time} dias)
+                            {option.name || "Opção de frete"} ({option.delivery_time ?? 0} dias)
                           </p>
-                          <p className="text-sm text-zinc-500">
-                            R$ {Number(option.price).toFixed(2).replace(".", ",")}
-                          </p>
+                          <p className="text-sm text-zinc-500">R$ {formatMoney(option?.price)}</p>
                         </div>
                       </label>
                     ))}
@@ -360,13 +396,13 @@ function CheckoutContent() {
               <h2 className="text-xl font-medium">Método de Pagamento</h2>
 
               <div className="space-y-3">
-                <label className="flex items-center gap-3 p-4 border-2 border-rose-500 rounded-lg cursor-pointer bg-rose-50">
+                <label className={`flex items-center gap-3 p-4 border-2 rounded-lg cursor-pointer ${paymentMethod === "pix" ? "border-rose-500 bg-rose-50" : "border-zinc-200 hover:border-rose-500"}`}>
                   <input
                     type="radio"
                     name="payment"
                     value="pix"
                     checked={paymentMethod === "pix"}
-                    onChange={(e) => setPaymentMethod("pix")}
+                    onChange={() => setPaymentMethod("pix")}
                     className="cursor-pointer"
                   />
                   <div>
@@ -375,33 +411,18 @@ function CheckoutContent() {
                   </div>
                 </label>
 
-                <label className="flex items-center gap-3 p-4 border-2 border-zinc-200 rounded-lg cursor-pointer hover:border-rose-500">
+                <label className={`flex items-center gap-3 p-4 border-2 rounded-lg cursor-pointer ${paymentMethod === "credit" ? "border-rose-500 bg-rose-50" : "border-zinc-200 hover:border-rose-500"}`}>
                   <input
                     type="radio"
                     name="payment"
                     value="credit"
                     checked={paymentMethod === "credit"}
-                    onChange={(e) => setPaymentMethod("credit")}
+                    onChange={() => setPaymentMethod("credit")}
                     className="cursor-pointer"
                   />
                   <div>
                     <p className="font-medium">Cartão de Crédito</p>
                     <p className="text-sm text-zinc-600">Parcelado em até 12x</p>
-                  </div>
-                </label>
-
-                <label className="flex items-center gap-3 p-4 border-2 border-zinc-200 rounded-lg cursor-pointer hover:border-rose-500">
-                  <input
-                    type="radio"
-                    name="payment"
-                    value="debit"
-                    checked={paymentMethod === "debit"}
-                    onChange={(e) => setPaymentMethod("debit")}
-                    className="cursor-pointer"
-                  />
-                  <div>
-                    <p className="font-medium">Débito em Conta</p>
-                    <p className="text-sm text-zinc-600">Pagamento imediato</p>
                   </div>
                 </label>
               </div>
@@ -437,7 +458,6 @@ function CheckoutContent() {
           <h2 className="text-lg font-medium mb-6 pb-4 border-b border-zinc-200">
             Resumo da Compra
           </h2>
-
           <div className="space-y-3 mb-6 max-h-48 overflow-y-auto">
             {items.map((item) => (
               <div key={item.productId} className="flex justify-between text-sm">
@@ -446,7 +466,6 @@ function CheckoutContent() {
               </div>
             ))}
           </div>
-
           <div className="space-y-2 text-sm border-t border-zinc-200 pt-4">
             <div className="flex justify-between">
               <span className="text-zinc-600">Subtotal</span>
@@ -454,11 +473,11 @@ function CheckoutContent() {
             </div>
             <div className="flex justify-between">
               <span className="text-zinc-600">Frete</span>
-              <span>R$ {shippingCost.toFixed(2).replace(".", ",")}</span>
+              <span>R$ {formatMoney(shippingCost)}</span>
             </div>
             <div className="flex justify-between text-base font-semibold pt-3 border-t border-zinc-200">
               <span>Total</span>
-              <span>R$ {finalTotal.toFixed(2).replace(".", ",")}</span>
+              <span>R$ {formatMoney(finalTotal)}</span>
             </div>
           </div>
         </div>

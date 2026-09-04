@@ -10,6 +10,7 @@ import {
   removeCartItem,
   clearCart,
   CartItem,
+  setCurrentCartUserId,
 } from "@/lib/cart";
 import { Trash2, Plus, Minus, ShoppingBag, ArrowRight } from "lucide-react";
 
@@ -39,14 +40,18 @@ function CartContent() {
     window.addEventListener("rg-cart:update", sync);
 
     supabase.auth.getSession().then(({ data }) => {
-      setUser(data.session?.user ?? null);
+      const nextUser = data.session?.user ?? null;
+      setUser(nextUser);
+      setCurrentCartUserId(nextUser?.id ?? null);
       setLoadingAuth(false);
     });
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
+      const nextUser = session?.user ?? null;
+      setUser(nextUser);
+      setCurrentCartUserId(nextUser?.id ?? null);
       setLoadingAuth(false);
     });
 

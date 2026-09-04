@@ -17,6 +17,17 @@ export async function POST(request: Request) {
       total,
     } = body;
 
+    // Garantir que o usuário existe no banco
+    await prisma.user.upsert({
+      where: { id: userId },
+      update: {},
+      create: {
+        id: userId,
+        email: customerEmail,
+        role: "USER",
+      },
+    });
+
     // Validar estoque e criar itens do pedido
     const orderItems = [];
     for (const item of items) {
@@ -49,7 +60,7 @@ export async function POST(request: Request) {
         paymentMethod,
         shippingAddress,
         shippingCost: parseFloat(shippingCost.toString()),
-        shippingMethod,
+        shippingMethod: shippingMethod?.toString(),
         total: parseFloat(total.toString()),
         items: {
           create: orderItems,
@@ -60,7 +71,7 @@ export async function POST(request: Request) {
       },
     });
 
-    // Atualizar estoque (não faz a baixa ainda, apenas reserva o item)
+    // Atualizar estoque
     for (const item of items) {
       await prisma.product.update({
         where: { id: item.productId },
@@ -73,10 +84,12 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json(order, { status: 201 });
-  } catch (error) {
-    console.error("Erro ao criar pedido:", error);
+  } catch (error: any) {
+    console.error("Erro ao criar pedido:", JSON.stringify(error, null, 2));
+    console.error("Mensagem:", error?.message);
+    console.error("Código:", error?.code);
     return NextResponse.json(
-      { error: "Erro ao criar pedido" },
+      { error: error?.message ?? "Erro ao criar pedido" },
       { status: 500 }
     );
   }

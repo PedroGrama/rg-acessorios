@@ -29,8 +29,8 @@ export function validateProductInput(input: Record<string, unknown>) {
   const code = typeof input.code === "string" ? input.code.trim() : "";
   const slug = buildProductSlug(name, code) || "produto";
   const price = Number(input.price);
-  const stockValue = input.stock === undefined || input.stock === null || input.stock === "" ? 0 : Number(input.stock);
-  const stock = Number.isFinite(stockValue) ? Math.max(0, Math.trunc(stockValue)) : 0;
+  const stockValue = input.stock === undefined || input.stock === null || input.stock === "" ? 1 : Number(input.stock);
+  const stock = Number.isFinite(stockValue) ? Math.max(1, Math.trunc(stockValue)) : 1;
   const categoryId = typeof input.categoryId === "string" ? input.categoryId : "";
 
   if (!name || name.length > 160) return { error: "O nome é obrigatório e deve ter até 160 caracteres." };

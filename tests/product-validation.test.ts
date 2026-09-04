@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { categoryPrefix, slugify, validateProductInput } from "../src/lib/product-validation.ts";
 import { buildShippingPayload, sortShippingOptions } from "../src/lib/melhor-envio.ts";
-import { addCartItem, getCartCount, readCartItems } from "../src/lib/cart.ts";
+import { addCartItem, getCartCount, getCartStorageKey, readCartItems, normalizePhone, normalizePostalCode } from "../src/lib/cart.ts";
 
 test("slugify removes accents and creates a URL slug", () => {
   assert.equal(slugify("Joias em Prata Maciça 925"), "joias-em-prata-macica-925");
@@ -69,4 +69,16 @@ test("shipping payload uses the store postal code and sorts options by price", (
   assert.equal(payload.to.postal_code, "30110000");
   assert.equal(payload.products[0].quantity, 2);
   assert.deepEqual(sortShippingOptions([{ price: 20 }, { price: 10 }]).map((option) => option.price), [10, 20]);
+});
+
+test("cart keys are scoped per user to avoid cross-account leakage", () => {
+  assert.equal(getCartStorageKey("user-1"), "rg-acessorios-cart:user-1");
+  assert.equal(getCartStorageKey("user-2"), "rg-acessorios-cart:user-2");
+  assert.equal(getCartStorageKey(), "rg-acessorios-cart:guest");
+});
+
+test("phone and postal code inputs normalize to Brazilian formats", () => {
+  assert.equal(normalizePhone("11987654321"), "(11) 98765-4321");
+  assert.equal(normalizePhone("1123456789"), "(11) 2345-6789");
+  assert.equal(normalizePostalCode("30110000"), "30110-000");
 });

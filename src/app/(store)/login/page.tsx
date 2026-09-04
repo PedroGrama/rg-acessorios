@@ -4,6 +4,7 @@ import Link from "next/link";
 import { FormEvent, useState, Suspense } from "react";
 import { createClient } from "@supabase/supabase-js";
 import { useSearchParams, useRouter } from "next/navigation";
+import { setCurrentCartUserId } from "@/lib/cart";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -33,7 +34,7 @@ function LoginForm() {
     setLoading(true);
     setMessage("");
 
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
@@ -45,6 +46,7 @@ function LoginForm() {
       return;
     }
 
+    setCurrentCartUserId(data.user?.id ?? null);
     router.push(next);
     router.refresh();
   }
