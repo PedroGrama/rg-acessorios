@@ -71,8 +71,8 @@ function CheckoutContent() {
   const total = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const finalTotal = total + shippingCost;
 
-  const handlePostalCodeChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const nextPostalCode = normalizePostalCode(e.target.value);
+  const handlePostalCodeChange = async (value: string) => {
+    const nextPostalCode = normalizePostalCode(value);
     setShippingData((prev) => ({ ...prev, postalCode: nextPostalCode }));
 
     if (nextPostalCode.length !== 9) {
@@ -310,14 +310,22 @@ function CheckoutContent() {
                     type="tel"
                     placeholder="Telefone"
                     value={shippingData.phone}
-                    onChange={(e) => setShippingData((prev) => ({ ...prev, phone: normalizePhone(e.target.value) }))}
+                    onChange={(e) => {
+                      const masked = normalizePhone(e.target.value);
+                      setShippingData((prev) => ({ ...prev, phone: masked }));
+                    }}
+                    maxLength={15}
                     className="w-full px-4 py-2 border border-zinc-200 rounded-lg focus:outline-none focus:border-rose-500"
                   />
                   <input
                     type="text"
                     placeholder="CEP"
                     value={shippingData.postalCode}
-                    onChange={handlePostalCodeChange}
+                    onChange={(e) => {
+                      const raw = e.target.value.replace(/\D/g, "");
+                      const formatted = raw.length > 5 ? `${raw.slice(0, 5)}-${raw.slice(5, 8)}` : raw;
+                      handlePostalCodeChange(formatted);
+                    }}
                     maxLength={9}
                     className="w-full px-4 py-2 border border-zinc-200 rounded-lg focus:outline-none focus:border-rose-500"
                   />

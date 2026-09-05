@@ -21,6 +21,6 @@ export function buildShippingPayload(destinationPostalCode: string, items: Shipp
   };
 }
 
-export function sortShippingOptions(options: Array<{ price?: number | string; delivery_time?: number }>) {
+export function sortShippingOptions<T extends { price?: number | string; delivery_time?: number }>(options: T[]): T[] {
   return [...options].sort((first, second) => Number(first.price ?? 0) - Number(second.price ?? 0));
 }
